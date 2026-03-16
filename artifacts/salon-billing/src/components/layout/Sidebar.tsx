@@ -10,7 +10,8 @@ import {
   Tag, 
   BarChart3, 
   Receipt,
-  Settings
+  Settings,
+  Scissors
 } from "lucide-react";
 import clsx from "clsx";
 
@@ -34,11 +35,14 @@ export function Sidebar() {
     <div className="w-64 h-screen bg-sidebar flex flex-col shadow-2xl z-50">
       <div className="p-6 flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg rose-gold-gradient flex items-center justify-center shadow-lg">
-          <Sparkles className="w-6 h-6 text-white" />
+          <Scissors className="w-5 h-5 text-white" />
         </div>
-        <h1 className="text-sidebar-foreground text-xl font-bold font-serif tracking-widest">
-          AURA SALON
-        </h1>
+        <div>
+          <h1 className="text-sidebar-foreground text-base font-bold font-serif tracking-widest leading-tight">
+            AT SALON
+          </h1>
+          <p className="text-sidebar-foreground/60 text-[10px] font-medium tracking-[0.15em] uppercase">Management</p>
+        </div>
       </div>
 
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto mt-4">
@@ -76,7 +80,7 @@ export function Sidebar() {
           </div>
           <div>
             <p className="text-xs text-sidebar-foreground font-semibold">Admin User</p>
-            <p className="text-[10px] text-sidebar-foreground/50">admin@aura.com</p>
+            <p className="text-[10px] text-sidebar-foreground/50">admin@atsalon.com</p>
           </div>
         </div>
       </div>
