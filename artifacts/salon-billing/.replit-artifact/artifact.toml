@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Salon Billing Software"
+version = "1.0.0"
+id = "artifacts/salon-billing"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 19151
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/salon-billing run dev"
+
+[services.env]
+PORT = "19151"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/salon-billing", "run", "build"]
+publicDir = "artifacts/salon-billing/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

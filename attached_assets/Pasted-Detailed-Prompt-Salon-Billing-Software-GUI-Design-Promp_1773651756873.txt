@@ -1,0 +1,352 @@
+Detailed Prompt: Salon Billing Software GUI Design
+
+Prompt
+
+Design a modern, professional, and intuitive Salon Billing Software GUI for desktop and tablet usage. The interface should be similar to a Point-of-Sale (POS) system used in salons, spas, and beauty clinics.
+
+The UI should be clean, minimal, fast to operate, and optimized for touch screens.
+
+Use a premium salon theme with colors like:
+
+Primary: Deep Purple / Royal Gold
+
+Secondary: Soft Beige / White
+
+Accent: Rose Gold or Elegant Pink
+
+Fonts: Poppins / Inter / Montserrat
+
+The system must look like premium salon management software used in luxury salons.
+
+Main Layout Structure
+
+The application should have three main sections:
+
+1. Left Sidebar (Navigation Menu)
+
+A vertical navigation panel with icons and labels.
+
+Menu Items:
+
+Dashboard
+New Bill / POS
+Appointments
+Customers
+Services
+Products
+Staff
+Inventory
+Memberships
+Offers / Coupons
+Reports
+Expenses
+Settings
+Logout
+
+Each menu item should have a modern icon.
+
+Sidebar should be collapsible.
+
+2. Top Header Bar
+
+The top bar should contain:
+
+Salon Logo
+Current Date & Time
+Search Bar (Search Customer / Phone Number)
+Notification Bell
+Staff Profile / Login Name
+Quick Add Button (+)
+
+Example quick add options:
+
+Add Customer
+Add Appointment
+Add Product
+Add Service
+
+3. Main Workspace Area
+
+The main area changes depending on the selected module.
+
+POS BILLING SCREEN (MOST IMPORTANT)
+
+This is the core screen of the software.
+
+Design a 3-column POS layout.
+
+LEFT PANEL — Services & Products
+
+This section shows:
+
+Search Bar
+Category Tabs
+
+Example Categories:
+
+Hair Services
+Facial
+Spa
+Makeup
+Nail Care
+Hair Products
+Skin Products
+
+Below categories show service cards with:
+
+Service Name
+Price
+Duration
+
+Example card:
+
+Haircut
+₹300
+30 min
+
+Clicking adds the service to the bill.
+
+Cards should be large touch friendly buttons.
+
+CENTER PANEL — Bill Cart
+
+Shows all selected services.
+
+Columns:
+
+Service Name
+Staff
+Price
+Qty
+Discount
+Total
+
+Each row should allow:
+
+Edit price
+Assign staff
+Remove item
+
+Below cart show:
+
+Subtotal
+Discount
+Tax (GST if applicable)
+Final Amount
+
+RIGHT PANEL — Payment Section
+
+Large clear payment panel.
+
+Show:
+
+Total Amount
+
+Payment options:
+
+Cash
+UPI
+Card
+Wallet
+
+Buttons should be big and colorful.
+
+Add:
+
+Apply Coupon
+Membership Discount
+Redeem Points
+
+Final button:
+
+Generate Bill
+
+After bill generation:
+
+Print Bill
+Send WhatsApp Invoice
+Send SMS
+
+Customer Selection Section
+
+Above the cart show:
+
+Customer Name
+Phone Number
+Membership Status
+Loyalty Points
+
+Buttons:
+
+Add New Customer
+View History
+
+Appointment Module UI
+
+Calendar view showing:
+
+Time slots
+Booked appointments
+Staff assigned
+
+Color coding for:
+
+Hair services
+Spa
+Facial
+Makeup
+
+Click appointment → open quick billing.
+
+Customer Management Screen
+
+Customer table with:
+
+Name
+Phone Number
+Total Visits
+Total Spend
+Membership Type
+Last Visit
+
+Click customer → show profile:
+
+Service history
+Bills
+Loyalty points
+Notes
+
+Inventory Management
+
+Table layout:
+
+Product Name
+Brand
+Stock Quantity
+Reorder Level
+Cost Price
+Selling Price
+Supplier
+
+Low stock should be highlighted in red.
+
+Staff Management
+
+Show staff cards with:
+
+Photo
+Name
+Specialization
+Commission %
+Working Hours
+
+Click staff → see:
+
+Services performed
+Revenue generated
+Tips
+
+Reports Dashboard
+
+Graphs and analytics:
+
+Daily Revenue
+Weekly Sales
+Top Services
+Top Staff
+Customer Visits
+Product Sales
+
+Charts:
+
+Bar chart
+Pie chart
+Line chart
+
+Settings Panel
+
+Salon details:
+
+Salon Name
+Address
+GST Number
+Phone Number
+Logo Upload
+
+Billing Settings:
+
+GST ON/OFF
+Invoice Format
+Currency
+
+Notification Settings:
+
+WhatsApp API
+SMS API
+
+Invoice Design
+
+Professional salon invoice containing:
+
+Salon Logo
+Salon Address
+Customer Name
+Services List
+Price
+Discount
+GST
+Final Amount
+Payment Method
+
+QR code for UPI payment.
+
+UX Requirements
+
+The UI should be:
+
+Fast for billing
+Touch friendly
+Minimal clicks
+Clear typography
+Modern POS style
+
+Animations should be smooth but minimal.
+
+Technical Requirements
+
+Design compatible with:
+
+Desktop
+Tablet POS
+Touch screens
+
+Framework friendly for:
+
+React
+Next.js
+Electron desktop app
+
+Use:
+
+Component based layout
+Reusable UI cards
+Modular panels
+
+Advanced Features
+
+Add optional sections for:
+
+Loyalty Points System
+Membership Packages
+Package Services (e.g. Bridal Package)
+WhatsApp Marketing
+Digital Receipts
+QR Code Billing
+
+Overall Design Style
+
+Professional
+Luxury salon look
+Minimalist POS interface
+Elegant color palette
+High usability
