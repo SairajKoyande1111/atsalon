@@ -15,6 +15,7 @@
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "http-proxy-middleware": "^3.0.5",
     "mongoose": "^9.3.3"
   },
   "devDependencies": {
