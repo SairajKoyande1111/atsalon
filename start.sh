@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+echo "Clearing stale processes on ports 3000 and 5000..."
+fuser -k 3000/tcp 2>/dev/null || true
+fuser -k 5000/tcp 2>/dev/null || true
+sleep 1
+
 echo "Installing dependencies..."
 pnpm install --frozen-lockfile
 
