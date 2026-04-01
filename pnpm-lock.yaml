@@ -16,7 +16,7 @@ catalogs:
       specifier: ^0.0.6
       version: 0.0.6
     '@tailwindcss/vite':
-      specifier: ^4.1.14
+      specifier: 4.2.1
       version: 4.2.1
     '@tanstack/react-query':
       specifier: ^5.90.21
@@ -31,7 +31,7 @@ catalogs:
       specifier: ^19.2.0
       version: 19.2.3
     '@vitejs/plugin-react':
-      specifier: ^5.0.4
+      specifier: 5.1.4
       version: 5.1.4
     class-variance-authority:
       specifier: ^0.7.1
@@ -64,7 +64,7 @@ catalogs:
       specifier: ^4.21.0
       version: 4.21.0
     vite:
-      specifier: ^7.3.0
+      specifier: 7.3.1
       version: 7.3.1
     zod:
       specifier: ^3.25.76
@@ -191,6 +191,9 @@ importers:
         specifier: ^9.3.3
         version: 9.3.3
     devDependencies:
+      '@tailwindcss/vite':
+        specifier: 'catalog:'
+        version: 4.2.1(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
       '@types/cookie-parser':
         specifier: ^1.4.10
         version: 1.4.10(@types/express@5.0.6)
@@ -203,12 +206,18 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 5.1.4(vite@7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2))
       esbuild:
         specifier: 0.27.3
         version: 0.27.3
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
+      vite:
+        specifier: 'catalog:'
+        version: 7.3.1(@types/node@25.3.5)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.2)
 
   artifacts/mockup-sandbox:
     devDependencies:

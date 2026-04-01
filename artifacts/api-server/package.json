@@ -19,11 +19,14 @@
     "mongoose": "^9.3.3"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
     "esbuild": "^0.27.3",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "vite": "catalog:"
   }
 }

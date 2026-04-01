@@ -27,9 +27,10 @@ A full-stack salon management and billing application built as a pnpm monorepo. 
 ```bash
 bash start.sh
 ```
-- Backend starts on **port 3000** (`PORT=3000`)
-- Frontend starts on **port 5000** (`PORT=5000 BASE_PATH=/`)
-- Vite proxies `/api` requests to `localhost:3000`
+- Single unified server on **port 5000** only
+- Express handles `/api/*` routes (MongoDB via Mongoose)
+- Vite runs as Express middleware — serves frontend with full HMR
+- No inter-process coordination needed; no port conflicts possible
 
 ### Workflow
 The "Start application" workflow runs `bash start.sh` and serves the web preview on port 5000.
