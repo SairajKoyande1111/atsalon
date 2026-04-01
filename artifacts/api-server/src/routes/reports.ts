@@ -1,141 +1,125 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import {
-  billsTable, billItemsTable, customersTable, servicesTable, staffTable, appointmentsTable, productsTable
-} from "@workspace/db/schema";
-import { eq, sql, desc, gte, and, lte } from "drizzle-orm";
+import Bill from "../models/Bill";
+import Customer from "../models/Customer";
+import Appointment from "../models/Appointment";
+import Product from "../models/Product";
+import { withId, withIds } from "../utils/format";
 
 const router = Router();
 
 router.get("/dashboard", async (req, res) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
+  try {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const [todayBills, monthBills, totalCustomers, pendingAppts, products, recentBills, allPaidBills] = await Promise.all([
+      Bill.find({ createdAt: { $gte: todayStart } }).lean(),
+      Bill.find({ createdAt: { $gte: monthStart }, status: "paid" }).lean(),
+      Customer.countDocuments(),
+      Appointment.countDocuments({ status: "scheduled" }),
+      Product.find({ isActive: true }).lean(),
+      Bill.find({ status: "paid" }).sort({ createdAt: -1 }).limit(5).lean(),
+      Bill.find({ status: "paid" }).lean(),
+    ]);
 
-  const todayBillsResult = await db.select({
-    count: sql<number>`count(*)`,
-    revenue: sql<number>`coalesce(sum(${billsTable.finalAmount}), 0)`,
-  }).from(billsTable).where(sql`date(${billsTable.createdAt}) = ${todayStr}`);
+    const todayRevenue = todayBills.reduce((s: number, b: any) => s + b.finalAmount, 0);
+    const monthRevenue = monthBills.reduce((s: number, b: any) => s + b.finalAmount, 0);
+    const todayCustomerIds = new Set(todayBills.filter((b: any) => b.customerId).map((b: any) => b.customerId?.toString()));
+    const lowStockCount = products.filter((p: any) => p.stockQuantity <= p.reorderLevel).length;
 
-  const monthBillsResult = await db.select({
-    count: sql<number>`count(*)`,
-    revenue: sql<number>`coalesce(sum(${billsTable.finalAmount}), 0)`,
-  }).from(billsTable).where(gte(billsTable.createdAt, firstOfMonth));
+    const serviceRevMap: Record<string, { count: number; revenue: number }> = {};
+    const staffRevMap: Record<string, { name: string; revenue: number; services: number }> = {};
 
-  const [{ total: totalCustomers }] = await db.select({ total: sql<number>`count(*)` }).from(customersTable);
-  const [{ count: todayCustomers }] = await db.select({ count: sql<number>`count(distinct ${billsTable.customerId})` })
-    .from(billsTable).where(sql`date(${billsTable.createdAt}) = ${todayStr} and ${billsTable.customerId} is not null`);
+    for (const bill of allPaidBills) {
+      for (const item of (bill as any).items) {
+        if (item.type === "service") {
+          if (!serviceRevMap[item.name]) serviceRevMap[item.name] = { count: 0, revenue: 0 };
+          serviceRevMap[item.name].count++;
+          serviceRevMap[item.name].revenue += item.total;
+        }
+        if (item.staffId) {
+          const key = item.staffId.toString();
+          const staffName = item.staffName || "Unknown";
+          if (!staffRevMap[key]) staffRevMap[key] = { name: staffName, revenue: 0, services: 0 };
+          staffRevMap[key].revenue += item.total;
+          staffRevMap[key].services++;
+        }
+      }
+    }
 
-  const [{ count: pendingAppointments }] = await db.select({ count: sql<number>`count(*)` })
-    .from(appointmentsTable).where(eq(appointmentsTable.status, "scheduled"));
+    const topServices = Object.entries(serviceRevMap)
+      .map(([name, d]) => ({ name, count: d.count, revenue: d.revenue }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
 
-  const lowStockProducts = await db.select().from(productsTable);
-  const lowStockCount = lowStockProducts.filter(p => p.stockQuantity <= p.reorderLevel).length;
+    const topStaff = Object.values(staffRevMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
 
-  const topServicesRows = await db.select({
-    name: servicesTable.name,
-    count: sql<number>`count(*)`,
-    revenue: sql<number>`coalesce(sum(${billItemsTable.total}), 0)`,
-  }).from(billItemsTable)
-    .leftJoin(servicesTable, and(eq(billItemsTable.itemId, servicesTable.id), eq(billItemsTable.type, "service")))
-    .where(eq(billItemsTable.type, "service"))
-    .groupBy(servicesTable.name)
-    .orderBy(desc(sql`count(*)`))
-    .limit(5);
-
-  const topStaffRows = await db.select({
-    name: staffTable.name,
-    revenue: sql<number>`coalesce(sum(${billItemsTable.total}), 0)`,
-    services: sql<number>`count(*)`,
-  }).from(billItemsTable)
-    .leftJoin(staffTable, eq(billItemsTable.staffId, staffTable.id))
-    .where(sql`${billItemsTable.staffId} is not null`)
-    .groupBy(staffTable.name)
-    .orderBy(desc(sql`sum(${billItemsTable.total})`))
-    .limit(5);
-
-  const recentBills = await db.select({
-    id: billsTable.id,
-    billNumber: billsTable.billNumber,
-    finalAmount: billsTable.finalAmount,
-    paymentMethod: billsTable.paymentMethod,
-    status: billsTable.status,
-    createdAt: billsTable.createdAt,
-  }).from(billsTable).orderBy(desc(billsTable.createdAt)).limit(5);
-
-  res.json({
-    todayRevenue: parseFloat(String(todayBillsResult[0]?.revenue || 0)),
-    todayBills: Number(todayBillsResult[0]?.count || 0),
-    todayCustomers: Number(todayCustomers || 0),
-    totalCustomers: Number(totalCustomers || 0),
-    monthRevenue: parseFloat(String(monthBillsResult[0]?.revenue || 0)),
-    monthBills: Number(monthBillsResult[0]?.count || 0),
-    pendingAppointments: Number(pendingAppointments || 0),
-    lowStockCount,
-    topServices: topServicesRows.map(s => ({
-      name: s.name || "Unknown",
-      count: Number(s.count || 0),
-      revenue: parseFloat(String(s.revenue || 0)),
-    })),
-    topStaff: topStaffRows.map(s => ({
-      name: s.name || "Unknown",
-      revenue: parseFloat(String(s.revenue || 0)),
-      services: Number(s.services || 0),
-    })),
-    recentBills: recentBills.map(b => ({
-      id: b.id,
-      billNumber: b.billNumber,
-      finalAmount: parseFloat(b.finalAmount || "0"),
-      paymentMethod: b.paymentMethod,
-      status: b.status,
-      createdAt: b.createdAt.toISOString(),
-    })),
-  });
+    res.json({
+      todayRevenue,
+      todayBills: todayBills.length,
+      todayCustomers: todayCustomerIds.size,
+      totalCustomers,
+      monthRevenue,
+      monthBills: monthBills.length,
+      pendingAppointments: pendingAppts,
+      lowStockCount,
+      topServices,
+      topStaff,
+      recentBills: recentBills.map((b: any) => ({
+        id: b._id.toString(),
+        billNumber: b.billNumber,
+        finalAmount: b.finalAmount,
+        paymentMethod: b.paymentMethod,
+        status: b.status,
+        createdAt: b.createdAt,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch dashboard stats" });
+  }
 });
 
 router.get("/revenue", async (req, res) => {
-  const { period = "daily", startDate, endDate } = req.query as Record<string, string>;
+  try {
+    const { period = "daily" } = req.query as Record<string, string>;
+    const bills = await Bill.find({ status: "paid" }).sort({ createdAt: 1 }).lean();
 
-  const bills = await db.select({
-    finalAmount: billsTable.finalAmount,
-    customerId: billsTable.customerId,
-    createdAt: billsTable.createdAt,
-  }).from(billsTable).where(eq(billsTable.status, "paid")).orderBy(billsTable.createdAt);
+    const groupedData: Record<string, { revenue: number; bills: number; customers: Set<string> }> = {};
 
-  const groupedData: Record<string, { revenue: number; bills: number; customers: Set<number> }> = {};
-
-  for (const bill of bills) {
-    const date = new Date(bill.createdAt);
-    let label: string;
-
-    if (period === "daily") {
-      label = date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-    } else if (period === "weekly") {
-      const weekStart = new Date(date);
-      weekStart.setDate(date.getDate() - date.getDay());
-      label = weekStart.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-    } else {
-      label = date.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+    for (const bill of bills) {
+      const date = new Date((bill as any).createdAt);
+      let label: string;
+      if (period === "daily") {
+        label = date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+      } else if (period === "weekly") {
+        const ws = new Date(date);
+        ws.setDate(date.getDate() - date.getDay());
+        label = ws.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+      } else {
+        label = date.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+      }
+      if (!groupedData[label]) groupedData[label] = { revenue: 0, bills: 0, customers: new Set() };
+      groupedData[label].revenue += (bill as any).finalAmount;
+      groupedData[label].bills++;
+      if ((bill as any).customerId) groupedData[label].customers.add((bill as any).customerId.toString());
     }
 
-    if (!groupedData[label]) groupedData[label] = { revenue: 0, bills: 0, customers: new Set() };
-    groupedData[label].revenue += parseFloat(bill.finalAmount || "0");
-    groupedData[label].bills += 1;
-    if (bill.customerId) groupedData[label].customers.add(bill.customerId);
+    const data = Object.entries(groupedData).slice(-14).map(([label, d]) => ({
+      label, revenue: d.revenue, bills: d.bills, customers: d.customers.size,
+    }));
+
+    res.json({
+      period, data,
+      totalRevenue: bills.reduce((s: number, b: any) => s + b.finalAmount, 0),
+      totalBills: bills.length,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch revenue" });
   }
-
-  const data = Object.entries(groupedData).slice(-14).map(([label, d]) => ({
-    label,
-    revenue: d.revenue,
-    bills: d.bills,
-    customers: d.customers.size,
-  }));
-
-  const totalRevenue = bills.reduce((sum, b) => sum + parseFloat(b.finalAmount || "0"), 0);
-
-  res.json({ period, data, totalRevenue, totalBills: bills.length });
 });
 
 export default router;

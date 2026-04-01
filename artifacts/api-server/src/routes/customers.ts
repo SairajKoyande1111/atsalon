@@ -1,91 +1,80 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { customersTable, billsTable, billItemsTable } from "@workspace/db/schema";
-import { eq, like, desc, sql, or } from "drizzle-orm";
+import Customer from "../models/Customer";
+import Bill from "../models/Bill";
+import { withId, withIds } from "../utils/format";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
-  const { search, page = "1", limit = "20" } = req.query as Record<string, string>;
-  const pageNum = parseInt(page);
-  const limitNum = parseInt(limit);
-  const offset = (pageNum - 1) * limitNum;
+  try {
+    const { search, page = "1", limit = "20" } = req.query as Record<string, string>;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
 
-  let query = db.select().from(customersTable).orderBy(desc(customersTable.createdAt));
+    const filter = search
+      ? { $or: [{ name: new RegExp(search, "i") }, { phone: new RegExp(search, "i") }] }
+      : {};
 
-  let customers;
-  let total;
-  if (search) {
-    customers = await db.select().from(customersTable)
-      .where(or(like(customersTable.name, `%${search}%`), like(customersTable.phone, `%${search}%`)))
-      .orderBy(desc(customersTable.createdAt))
-      .limit(limitNum).offset(offset);
-    const countResult = await db.select({ count: sql<number>`count(*)` }).from(customersTable)
-      .where(or(like(customersTable.name, `%${search}%`), like(customersTable.phone, `%${search}%`)));
-    total = Number(countResult[0].count);
-  } else {
-    customers = await db.select().from(customersTable).orderBy(desc(customersTable.createdAt)).limit(limitNum).offset(offset);
-    const countResult = await db.select({ count: sql<number>`count(*)` }).from(customersTable);
-    total = Number(countResult[0].count);
+    const [customers, total] = await Promise.all([
+      Customer.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
+      Customer.countDocuments(filter),
+    ]);
+
+    res.json({ customers: withIds(customers), total, page: pageNum, limit: limitNum });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch customers" });
   }
-
-  const result = customers.map(c => ({
-    ...c,
-    totalSpend: parseFloat(c.totalSpend || "0"),
-    loyaltyPoints: c.loyaltyPoints,
-    totalVisits: c.totalVisits,
-    lastVisit: c.lastVisit ? c.lastVisit.toISOString() : null,
-    createdAt: c.createdAt.toISOString(),
-  }));
-
-  res.json({ customers: result, total, page: pageNum, limit: limitNum });
 });
 
 router.post("/", async (req, res) => {
-  const { name, phone, email, notes } = req.body;
-  const [customer] = await db.insert(customersTable).values({ name, phone, email, notes }).returning();
-  res.status(201).json({
-    ...customer,
-    totalSpend: parseFloat(customer.totalSpend || "0"),
-    lastVisit: customer.lastVisit ? customer.lastVisit.toISOString() : null,
-    createdAt: customer.createdAt.toISOString(),
-  });
+  try {
+    const { name, phone, email, dob, notes } = req.body;
+    const customer = await Customer.create({ name, phone, email, dob, notes });
+    res.status(201).json(withId(customer.toObject()));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to create customer" });
+  }
 });
 
 router.get("/:id", async (req, res) => {
-  const id = parseInt(req.params.id);
-  const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, id));
-  if (!customer) return res.status(404).json({ error: "Customer not found" });
+  try {
+    const customer = await Customer.findById(req.params.id).lean();
+    if (!customer) return res.status(404).json({ error: "Customer not found" });
 
-  const bills = await db.select({
-    id: billsTable.id,
-    billNumber: billsTable.billNumber,
-    finalAmount: billsTable.finalAmount,
-    paymentMethod: billsTable.paymentMethod,
-    status: billsTable.status,
-    createdAt: billsTable.createdAt,
-  }).from(billsTable).where(eq(billsTable.customerId, id)).orderBy(desc(billsTable.createdAt)).limit(10);
+    const bills = await Bill.find({ customerId: req.params.id })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
 
-  res.json({
-    ...customer,
-    totalSpend: parseFloat(customer.totalSpend || "0"),
-    lastVisit: customer.lastVisit ? customer.lastVisit.toISOString() : null,
-    createdAt: customer.createdAt.toISOString(),
-    bills: bills.map(b => ({ ...b, finalAmount: parseFloat(b.finalAmount || "0"), createdAt: b.createdAt.toISOString() })),
-  });
+    res.json({ ...withId(customer), bills: withIds(bills) });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch customer" });
+  }
 });
 
 router.put("/:id", async (req, res) => {
-  const id = parseInt(req.params.id);
-  const { name, phone, email, membershipType, notes } = req.body;
-  const [customer] = await db.update(customersTable).set({ name, phone, email, membershipType, notes }).where(eq(customersTable.id, id)).returning();
-  if (!customer) return res.status(404).json({ error: "Customer not found" });
-  res.json({
-    ...customer,
-    totalSpend: parseFloat(customer.totalSpend || "0"),
-    lastVisit: customer.lastVisit ? customer.lastVisit.toISOString() : null,
-    createdAt: customer.createdAt.toISOString(),
-  });
+  try {
+    const { name, phone, email, dob, membershipType, notes } = req.body;
+    const customer = await Customer.findByIdAndUpdate(
+      req.params.id,
+      { name, phone, email, dob, membershipType, notes },
+      { new: true, lean: true }
+    );
+    if (!customer) return res.status(404).json({ error: "Customer not found" });
+    res.json(withId(customer));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update customer" });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    await Customer.findByIdAndDelete(req.params.id);
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete customer" });
+  }
 });
 
 export default router;

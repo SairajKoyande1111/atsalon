@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { staffTable, billsTable, billItemsTable } from "@workspace/db/schema";
-import { eq, sql, sum } from "drizzle-orm";
+import Staff from "../models/Staff";
+import Bill from "../models/Bill";
+import { withId, withIds } from "../utils/format";
 
 const router = Router();
 
@@ -10,60 +10,77 @@ function getInitials(name: string) {
 }
 
 router.get("/", async (req, res) => {
-  const staff = await db.select().from(staffTable);
-  res.json({
-    staff: staff.map(s => ({
-      ...s,
-      commissionPercent: parseFloat(s.commissionPercent || "0"),
-      avatarInitials: getInitials(s.name),
-    })),
-  });
+  try {
+    const staff = await Staff.find({ isActive: true }).sort({ name: 1 }).lean();
+    res.json({
+      staff: withIds(staff).map((s: any) => ({ ...s, avatarInitials: getInitials(s.name) })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch staff" });
+  }
 });
 
 router.post("/", async (req, res) => {
-  const { name, specialization, commissionPercent, phone, email, workingHours } = req.body;
-  const [staff] = await db.insert(staffTable).values({
-    name, specialization, commissionPercent: commissionPercent.toString(), phone, email, workingHours
-  }).returning();
-  res.status(201).json({
-    ...staff,
-    commissionPercent: parseFloat(staff.commissionPercent || "0"),
-    avatarInitials: getInitials(staff.name),
-  });
+  try {
+    const { name, specialization, commissionPercent, phone, email, workingHours } = req.body;
+    const s = await Staff.create({ name, specialization, commissionPercent, phone, email, workingHours });
+    res.status(201).json({ ...withId(s.toObject()), avatarInitials: getInitials(name) });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to create staff" });
+  }
 });
 
 router.get("/:id", async (req, res) => {
-  const id = parseInt(req.params.id);
-  const [staff] = await db.select().from(staffTable).where(eq(staffTable.id, id));
-  if (!staff) return res.status(404).json({ error: "Staff not found" });
+  try {
+    const staff = await Staff.findById(req.params.id).lean();
+    if (!staff) return res.status(404).json({ error: "Staff not found" });
 
-  const itemStats = await db.select({
-    count: sql<number>`count(*)`,
-    revenue: sql<number>`coalesce(sum(${billItemsTable.total}), 0)`,
-  }).from(billItemsTable).where(eq(billItemsTable.staffId, id));
+    const bills = await Bill.find({ "items.staffId": req.params.id }).lean();
+    let totalRevenue = 0;
+    let servicesPerformed = 0;
+    for (const bill of bills) {
+      for (const item of (bill as any).items) {
+        if (item.staffId?.toString() === req.params.id) {
+          totalRevenue += item.total;
+          servicesPerformed++;
+        }
+      }
+    }
 
-  res.json({
-    ...staff,
-    commissionPercent: parseFloat(staff.commissionPercent || "0"),
-    avatarInitials: getInitials(staff.name),
-    servicesPerformed: Number(itemStats[0]?.count || 0),
-    revenueGenerated: parseFloat(String(itemStats[0]?.revenue || 0)),
-    tips: 0,
-  });
+    res.json({
+      ...withId(staff),
+      avatarInitials: getInitials((staff as any).name),
+      servicesPerformed,
+      revenueGenerated: totalRevenue,
+      tips: 0,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch staff" });
+  }
 });
 
 router.put("/:id", async (req, res) => {
-  const id = parseInt(req.params.id);
-  const { name, specialization, commissionPercent, phone, email, workingHours } = req.body;
-  const [staff] = await db.update(staffTable).set({
-    name, specialization, commissionPercent: commissionPercent.toString(), phone, email, workingHours
-  }).where(eq(staffTable.id, id)).returning();
-  if (!staff) return res.status(404).json({ error: "Staff not found" });
-  res.json({
-    ...staff,
-    commissionPercent: parseFloat(staff.commissionPercent || "0"),
-    avatarInitials: getInitials(staff.name),
-  });
+  try {
+    const { name, specialization, commissionPercent, phone, email, workingHours } = req.body;
+    const staff = await Staff.findByIdAndUpdate(
+      req.params.id,
+      { name, specialization, commissionPercent, phone, email, workingHours },
+      { new: true, lean: true }
+    );
+    if (!staff) return res.status(404).json({ error: "Staff not found" });
+    res.json({ ...withId(staff), avatarInitials: getInitials((staff as any).name) });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update staff" });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    await Staff.findByIdAndUpdate(req.params.id, { isActive: false });
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete staff" });
+  }
 });
 
 export default router;

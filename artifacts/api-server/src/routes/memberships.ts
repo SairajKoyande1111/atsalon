@@ -1,30 +1,26 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { membershipsTable } from "@workspace/db/schema";
+import Membership from "../models/Membership";
+import { withId, withIds } from "../utils/format";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
-  const memberships = await db.select().from(membershipsTable);
-  res.json({
-    memberships: memberships.map(m => ({
-      ...m,
-      price: parseFloat(m.price || "0"),
-      discountPercent: parseFloat(m.discountPercent || "0"),
-    })),
-  });
+  try {
+    const memberships = await Membership.find().sort({ name: 1 }).lean();
+    res.json({ memberships: withIds(memberships) });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch memberships" });
+  }
 });
 
 router.post("/", async (req, res) => {
-  const { name, price, duration, benefits, discountPercent } = req.body;
-  const [membership] = await db.insert(membershipsTable).values({
-    name, price: price.toString(), duration, benefits, discountPercent: discountPercent.toString()
-  }).returning();
-  res.status(201).json({
-    ...membership,
-    price: parseFloat(membership.price || "0"),
-    discountPercent: parseFloat(membership.discountPercent || "0"),
-  });
+  try {
+    const { name, price, duration, benefits, discountPercent } = req.body;
+    const membership = await Membership.create({ name, price, duration, benefits, discountPercent });
+    res.status(201).json(withId(membership.toObject()));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to create membership" });
+  }
 });
 
 export default router;

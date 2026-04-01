@@ -1,46 +1,56 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { servicesTable } from "@workspace/db/schema";
-import { eq, sql } from "drizzle-orm";
+import Service from "../models/Service";
+import { withId, withIds } from "../utils/format";
 
 const router = Router();
 
 router.get("/", async (req, res) => {
-  const { category } = req.query as Record<string, string>;
+  try {
+    const { category } = req.query as Record<string, string>;
+    const filter: any = { isActive: true };
+    if (category) filter.category = category;
 
-  let services;
-  if (category) {
-    services = await db.select().from(servicesTable).where(eq(servicesTable.category, category));
-  } else {
-    services = await db.select().from(servicesTable);
+    const services = await Service.find(filter).sort({ name: 1 }).lean();
+    const categories = [...new Set(services.map((s: any) => s.category))];
+
+    res.json({ services: withIds(services), categories });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch services" });
   }
-
-  const categories = await db.selectDistinct({ category: servicesTable.category }).from(servicesTable);
-
-  res.json({
-    services: services.map(s => ({ ...s, price: parseFloat(s.price || "0") })),
-    categories: categories.map(c => c.category),
-  });
 });
 
 router.post("/", async (req, res) => {
-  const { name, category, price, duration, description } = req.body;
-  const [service] = await db.insert(servicesTable).values({ name, category, price: price.toString(), duration, description }).returning();
-  res.status(201).json({ ...service, price: parseFloat(service.price || "0") });
+  try {
+    const { name, category, price, duration, description } = req.body;
+    const service = await Service.create({ name, category, price, duration, description });
+    res.status(201).json(withId(service.toObject()));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to create service" });
+  }
 });
 
 router.put("/:id", async (req, res) => {
-  const id = parseInt(req.params.id);
-  const { name, category, price, duration, description } = req.body;
-  const [service] = await db.update(servicesTable).set({ name, category, price: price.toString(), duration, description }).where(eq(servicesTable.id, id)).returning();
-  if (!service) return res.status(404).json({ error: "Service not found" });
-  res.json({ ...service, price: parseFloat(service.price || "0") });
+  try {
+    const { name, category, price, duration, description } = req.body;
+    const service = await Service.findByIdAndUpdate(
+      req.params.id,
+      { name, category, price, duration, description },
+      { new: true, lean: true }
+    );
+    if (!service) return res.status(404).json({ error: "Service not found" });
+    res.json(withId(service));
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update service" });
+  }
 });
 
 router.delete("/:id", async (req, res) => {
-  const id = parseInt(req.params.id);
-  await db.update(servicesTable).set({ isActive: false }).where(eq(servicesTable.id, id));
-  res.status(204).send();
+  try {
+    await Service.findByIdAndUpdate(req.params.id, { isActive: false });
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: "Failed to delete service" });
+  }
 });
 
 export default router;
