@@ -17,9 +17,12 @@ if (Number.isNaN(port) || port <= 0) {
 
 const httpServer = createHttpServer(app);
 
-// Setup Vite middleware with the HTTP server so HMR runs on the same port
+// Setup Vite middleware — passes the HTTP server so HMR WebSocket
+// runs on the same port (5000) instead of needing a separate port.
 await setupVite(app, httpServer);
 
-httpServer.listen(port, "0.0.0.0", () => {
+// Bind to "::" (IPv6 dual-stack) so both IPv4 and IPv6 connections
+// work — required for Replit's proxy to reliably reach the server.
+httpServer.listen(port, "::", () => {
   console.log(`Server listening on port ${port}`);
 });
